@@ -59,11 +59,11 @@ func TestRouter(t *testing.T) {
 }
 
 func TestParam(t *testing.T) {
-	type test struct {
+	type testStr struct {
 		req, pat, s string
 		ok          bool
 	}
-	for _, want := range []test{
+	for _, want := range []testStr{
 		{"http://x.com/a", "/*", "a", true},
 		{"http://x.com/a/", "/*/", "a", true},
 		{"http://x.com/a/b", "/*/b", "a", true},
@@ -80,7 +80,62 @@ func TestParam(t *testing.T) {
 		}
 
 		got := want
-		got.ok = rootdown.Param(r, want.pat, &got.s)
+		got.ok = rootdown.Get(r, want.pat, &got.s)
+		if want != got {
+			t.Fatalf("want %#v; got %#v", want, got)
+		}
+	}
+	type testInt struct {
+		req, pat string
+		i        int
+		ok       bool
+	}
+	for _, want := range []testInt{
+		{"http://x.com/1", "/*", 1, true},
+		{"http://x.com/1/", "/*/", 1, true},
+		{"http://x.com/1/b", "/*/b", 1, true},
+		{"http://x.com/1/b", "/*/c", 1, false},
+		{"http://x.com/a/1", "/a/*", 1, true},
+		{"http://x.com/1/b/c", "/*/b/c", 1, true},
+		{"http://x.com/a/b/c", "/*/b/d", 0, false},
+		{"http://x.com/a/b/1", "/a/b/*", 1, true},
+		{"http://x.com/a/b/1", "/a/x/*", 0, false},
+	} {
+		r, err := http.NewRequest(http.MethodGet, want.req, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got := want
+		got.ok = rootdown.Get(r, want.pat, &got.i)
+		if want != got {
+			t.Fatalf("want %#v; got %#v", want, got)
+		}
+	}
+	type testByte struct {
+		req, pat, s string
+		ok          bool
+	}
+	for _, want := range []testByte{
+		{"http://x.com/YQ==", "/*", "a", true},
+		{"http://x.com/YQ==/", "/*/", "a", true},
+		{"http://x.com/YQ==/b", "/*/b", "a", true},
+		{"http://x.com/YQ==/b", "/*/c", "a", false},
+		{"http://x.com/a/Yg==", "/a/*", "b", true},
+		{"http://x.com/YQ==/b/c", "/*/b/c", "a", true},
+		{"http://x.com/YQ==/b/c", "/*/b/d", "a", false},
+		{"http://x.com/a/b/Yw==", "/a/b/*", "c", true},
+		{"http://x.com/a/b/Yw==", "/a/x/*", "", false},
+	} {
+		r, err := http.NewRequest(http.MethodGet, want.req, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got := want
+		var b []byte
+		got.ok = rootdown.Get(r, want.pat, &b)
+		got.s = string(b)
 		if want != got {
 			t.Fatalf("want %#v; got %#v", want, got)
 		}

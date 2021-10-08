@@ -1,12 +1,14 @@
 package rootdown
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
+// Router is an http request router. See Add for details.
 type Router struct {
 	head *segment
 }
@@ -17,7 +19,12 @@ type segment struct {
 	methods  map[string]http.Handler
 }
 
-func (rr *Router) Add(method, path string, h http.HandlerFunc, middlewares ...func(h http.Handler) http.Handler) {
+// Add adds a route to the Router. Optional middleware is wrapped around the handler at Add time.
+//
+// Paths are matched without regard to the presence or absence of trailing slashes.
+// If a path contains a wildcard (*), any string may be present in that path segment.
+// If a request path cannot be matched, the Router looks for the closest parent route that has a 404 path added and routes to that handler.
+func (rr *Router) Add(method, path string, h http.HandlerFunc, middlewares ...Middleware) {
 	if rr.head == nil {
 		rr.head = &segment{
 			children: make(map[string]*segment),
@@ -52,6 +59,7 @@ func (rr *Router) Add(method, path string, h http.HandlerFunc, middlewares ...fu
 	seg.methods[method] = handler
 }
 
+// ServeHTTP fulfills the http.Handler interface.
 func (rr *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	path = strings.TrimSuffix(path, "/")
@@ -95,34 +103,12 @@ func (rr *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ServeHTTP(w, r)
 }
 
-func cut(s, sep string) (before, after string, found bool) {
-	if i := strings.Index(s, sep); i >= 0 {
-		return s[:i], s[i+len(sep):], true
-	}
-	return s, "", false
-}
-
-func RedirectToSlash(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasSuffix(r.URL.Path, "/") {
-			http.Redirect(w, r, r.URL.Path+"/", http.StatusMovedPermanently)
-			return
-		}
-		h.ServeHTTP(w, r)
-	})
-}
-
-func RedirectFromSlash(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/") {
-			http.Redirect(w, r, strings.TrimSuffix(r.URL.Path, "/"), http.StatusMovedPermanently)
-			return
-		}
-		h.ServeHTTP(w, r)
-	})
-}
-
-func Param(r *http.Request, path string, args ...interface{}) (ok bool) {
+// Get gets a path segment from a request path by looking for wildcards (*) in the path
+// and assigning the corresponding request path segement to the argument pointer.
+// Arguments may be pointers to strings, []byte, or int. Byte slice pointer arguments are
+// Base-64 decoded. If the path cannot be matched or there is an error decoding a byte slice
+// or int path, Get returns false.
+func Get(r *http.Request, path string, args ...interface{}) (ok bool) {
 	if strings.Count(path, "*") != len(args) {
 		panic(fmt.Sprintf("bad path: %q", path))
 	}
@@ -144,6 +130,12 @@ func Param(r *http.Request, path string, args ...interface{}) (ok bool) {
 		star, rpath, found = cut(rpath, "/")
 		if sp, ok := args[n].(*string); ok {
 			*sp = star
+		} else if bp, ok := args[n].(*[]byte); ok {
+			b, err := base64.StdEncoding.DecodeString(star)
+			if err != nil {
+				return false
+			}
+			*bp = b
 		} else {
 			bitsize := 0
 			switch args[n].(type) {
