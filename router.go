@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Router is an http request router. See Add for details.
+// Router is an HTTP request router. See rr.Route for details on routing.
 type Router struct {
 	head *segment
 }
@@ -19,12 +19,15 @@ type segment struct {
 	methods  map[string]http.Handler
 }
 
-// Add adds a route to the Router. Optional middleware is wrapped around the handler at Add time.
+// Route adds a route to the Router. Optional middleware is wrapped around the handler at add time.
+//
+// Methods are case sensitive and should be uppercase. A wildcard (*) will match any method.
 //
 // Paths are matched without regard to the presence or absence of trailing slashes.
+// (See the redirect middleware to enforce the presence/absence of a slash.)
 // If a path contains a wildcard (*), any string may be present in that path segment.
 // If a request path cannot be matched, the Router looks for the closest parent route that has a 404 path added and routes to that handler.
-func (rr *Router) Add(method, path string, h http.HandlerFunc, middlewares ...Middleware) {
+func (rr *Router) Route(method, path string, h http.HandlerFunc, middlewares ...Middleware) {
 	if rr.head == nil {
 		rr.head = &segment{
 			children: make(map[string]*segment),
@@ -57,6 +60,21 @@ func (rr *Router) Add(method, path string, h http.HandlerFunc, middlewares ...Mi
 		handler = m(handler)
 	}
 	seg.methods[method] = handler
+}
+
+// Get is a shortcut for rr.Route(http.MethodGet, ...).
+func (rr *Router) Get(path string, h http.HandlerFunc, middlewares ...Middleware) {
+	rr.Route(http.MethodGet, path, h, middlewares...)
+}
+
+// Post is a shortcut for rr.Route(http.MethodPost, ...).
+func (rr *Router) Post(path string, h http.HandlerFunc, middlewares ...Middleware) {
+	rr.Route(http.MethodPost, path, h, middlewares...)
+}
+
+// NotFound is a shortcut for rr.Route("*", "/404", ...).
+func (rr *Router) NotFound(h http.HandlerFunc, middlewares ...Middleware) {
+	rr.Route("*", "/404", h, middlewares...)
 }
 
 // ServeHTTP fulfills the http.Handler interface.
@@ -96,6 +114,9 @@ func (rr *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h := seg.methods[r.Method]
+	if h == nil {
+		h = seg.methods["*"]
+	}
 	if h == nil {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return

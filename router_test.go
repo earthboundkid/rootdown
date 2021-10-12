@@ -18,12 +18,13 @@ func TestRouter(t *testing.T) {
 		}
 	}
 	var rr rootdown.Router
-	rr.Add(http.MethodGet, "/", text("home"))
-	rr.Add(http.MethodGet, "/a", text("a"), rootdown.RedirectToSlash)
-	rr.Add(http.MethodPost, "/a", text("post"), rootdown.RedirectFromSlash)
-	rr.Add(http.MethodGet, "/*/b", text("b"))
-	rr.Add(http.MethodGet, "/a/b/c", text("c"))
-	rr.Add(http.MethodGet, "/404", text("404"))
+	rr.Get("/", text("home"))
+	rr.Get("/a", text("a"), rootdown.RedirectToSlash)
+	rr.Post("/a", text("post"), rootdown.RedirectFromSlash)
+	rr.Get("/*/b", text("b"))
+	rr.Get("/a/b/c", text("c"))
+	rr.Get("/a/b/404", text("404-2"))
+	rr.NotFound(text("404"))
 	srv := httptest.NewServer(&rr)
 	for _, o := range []struct{ method, path, expect string }{
 		{http.MethodGet, "/", "home"},
@@ -32,18 +33,21 @@ func TestRouter(t *testing.T) {
 		{http.MethodGet, "/a//", "404"},
 		{http.MethodGet, "/bleh/b", "b"},
 		{http.MethodGet, "/a/b/c", "c"},
+		{http.MethodGet, "/a/b/d", "404-2"},
 		{http.MethodGet, "/xxx", "404"},
 		{http.MethodGet, "/xxx/yyy", "404"},
 		{http.MethodGet, "/a/yyy", "404"},
 		{http.MethodPost, "/a/", ""},
 		{http.MethodPost, "/a", "post"},
+		{http.MethodPost, "/c", "404"},
 		{http.MethodPost, "/bleh/b", "Method Not Allowed\n"},
 	} {
 		var s string
 		cl := srv.Client()
 		cl.CheckRedirect = requests.NoFollow
 		err := requests.
-			URL(srv.URL + o.path).
+			URL(srv.URL).
+			Path(o.path).
 			Method(o.method).
 			Client(cl).
 			AddValidator(nil).
@@ -108,6 +112,18 @@ func TestParam(t *testing.T) {
 
 		got := want
 		got.ok = rootdown.Get(r, want.pat, &got.i)
+		if want != got {
+			t.Fatalf("want %#v; got %#v", want, got)
+		}
+		var i32 int32
+		got.ok = rootdown.Get(r, want.pat, &i32)
+		got.i = int(i32)
+		if want != got {
+			t.Fatalf("want %#v; got %#v", want, got)
+		}
+		var i64 int64
+		got.ok = rootdown.Get(r, want.pat, &i64)
+		got.i = int(i64)
 		if want != got {
 			t.Fatalf("want %#v; got %#v", want, got)
 		}
