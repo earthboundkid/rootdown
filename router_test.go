@@ -2,10 +2,12 @@ package rootdown_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/fstest"
 
 	"github.com/carlmjohnson/requests"
 	"github.com/carlmjohnson/rootdown"
@@ -17,6 +19,28 @@ func TestRouter(t *testing.T) {
 			io.WriteString(w, s)
 		}
 	}
+	fsys1 := fstest.MapFS{
+		"not-found": &fstest.MapFile{
+			Data: []byte(`I should not be found`),
+		},
+		"mount/1.txt": &fstest.MapFile{
+			Data: []byte(`1`),
+		},
+		"mount/1/index.html": &fstest.MapFile{
+			Data: []byte(`index`),
+		},
+		"mount/1/2.txt": &fstest.MapFile{
+			Data: []byte(`2`),
+		},
+	}
+	fsys2 := fstest.MapFS{
+		"3.txt": &fstest.MapFile{
+			Data: []byte(`3`),
+		},
+		"4/index.html": &fstest.MapFile{
+			Data: []byte(`4`),
+		},
+	}
 	var rr rootdown.Router
 	rr.Get("/", text("home"))
 	rr.Get("/a", text("a"), rootdown.RedirectToSlash)
@@ -24,6 +48,8 @@ func TestRouter(t *testing.T) {
 	rr.Get("/*/b", text("b"))
 	rr.Get("/a/b/c", text("c"))
 	rr.Get("/a/b/404", text("404-2"))
+	rr.Mount("/static", "mount", fsys1)
+	rr.Mount("", "", fsys2)
 	rr.NotFound(text("404"))
 	srv := httptest.NewServer(&rr)
 	for _, o := range []struct{ method, path, expect string }{
@@ -41,6 +67,14 @@ func TestRouter(t *testing.T) {
 		{http.MethodPost, "/a", "post"},
 		{http.MethodPost, "/c", "404"},
 		{http.MethodPost, "/bleh/b", "Method Not Allowed\n"},
+		{http.MethodGet, "/not-found", "404"},
+		{http.MethodGet, "/static/not-found", "404"},
+		{http.MethodGet, "/static/1.txt", "1"},
+		{http.MethodPost, "/static/1.txt", "Method Not Allowed\n"},
+		{http.MethodGet, "/static/1/", "index"},
+		{http.MethodGet, "/static/1/2.txt", "2"},
+		{http.MethodGet, "/3.txt", "3"},
+		{http.MethodGet, "/4/", "4"},
 	} {
 		var s string
 		cl := srv.Client()
@@ -58,6 +92,7 @@ func TestRouter(t *testing.T) {
 		}
 		if s != o.expect {
 			t.Errorf("%s %s: %q", o.method, o.path, s)
+			fmt.Printf("%#v\n\n", rr)
 		}
 	}
 }

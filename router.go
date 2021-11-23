@@ -4,9 +4,13 @@ package rootdown
 import (
 	"encoding/base64"
 	"fmt"
+	"io/fs"
+	"log"
 	"net/http"
+	pkgpath "path"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Router is an HTTP request router. See rr.Route for details on routing.
@@ -76,6 +80,50 @@ func (rr *Router) Post(path string, h http.HandlerFunc, middlewares ...Middlewar
 // NotFound is a shortcut for rr.Route("*", "/404", ...).
 func (rr *Router) NotFound(h http.HandlerFunc, middlewares ...Middleware) {
 	rr.Route("*", "/404", h, middlewares...)
+}
+
+// Mount mounts fsys at the given path by walking the filesystem starting at root and
+// adding a Get entry for every file it finds. As a result, if new files are added to
+// fsys at runtime, they won't be picked up.
+// Mount panics if there are any errors in the process of walking the fsys.
+func (rr *Router) Mount(path, root string, fsys fs.FS, middlewares ...Middleware) {
+	httpfs := http.FS(fsys)
+	if root == "" {
+		root = "."
+	}
+	err := fs.WalkDir(fsys, root, func(fpath string, de fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("could not mount filesystem: %w", err)
+		}
+		if !de.Type().IsRegular() {
+			return nil
+		}
+		routepath := pkgpath.Join(path, strings.TrimPrefix(fpath, root))
+		if de.Name() == "index.html" {
+			routepath = strings.TrimSuffix(routepath, "/index.html")
+		}
+		h := func(w http.ResponseWriter, r *http.Request) {
+			f, err := httpfs.Open(fpath)
+			if err != nil {
+				log.Printf("problem opening mounted file: %v", err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+			defer f.Close()
+
+			var modtime time.Time
+			if stat, err := f.Stat(); err == nil {
+				modtime = stat.ModTime()
+			}
+
+			http.ServeContent(w, r, de.Name(), modtime, f)
+		}
+		rr.Get(routepath, h, middlewares...)
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
 }
 
 // ServeHTTP fulfills the http.Handler interface.
