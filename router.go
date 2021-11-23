@@ -1,3 +1,4 @@
+// Package rootdown is the only HTTP router for Go.
 package rootdown
 
 import (
