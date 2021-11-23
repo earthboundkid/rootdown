@@ -21,7 +21,7 @@ func redirectToSlash(h http.Handler) http.Handler {
 	})
 }
 
-// RedirectToSlash returns a permanent redirect when a request path has a trailing slash.
+// RedirectFromSlash returns a permanent redirect when a request path has a trailing slash.
 var RedirectFromSlash Middleware = redirectFromSlash
 
 func redirectFromSlash(h http.Handler) http.Handler {
