@@ -43,7 +43,7 @@ func (rr *Router) Route(method, path string, h http.HandlerFunc, middlewares ...
 	path = strings.TrimSuffix(path, "/")
 	seg := rr.head
 	for {
-		before, after, found := cut(path, "/")
+		before, after, found := strings.Cut(path, "/")
 		newseg := seg.children[before]
 		if newseg == nil {
 			newseg = &segment{
@@ -133,7 +133,7 @@ func (rr *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	seg := rr.head
 	did404 := false
 	for seg != nil {
-		before, after, found := cut(path, "/")
+		before, after, found := strings.Cut(path, "/")
 		newseg := seg.children[before]
 		if newseg == nil {
 			newseg = seg.children["*"]
@@ -189,7 +189,7 @@ func Get(r *http.Request, path string, args ...interface{}) (ok bool) {
 		rpath = strings.TrimPrefix(rpath, "/")
 		var prefix, star string
 		var found bool
-		prefix, path, found = cut(path, "*")
+		prefix, path, found = strings.Cut(path, "*")
 		if !strings.HasPrefix(rpath, prefix) {
 			return false
 		}
@@ -197,7 +197,7 @@ func Get(r *http.Request, path string, args ...interface{}) (ok bool) {
 		if !found {
 			break
 		}
-		star, rpath, found = cut(rpath, "/")
+		star, rpath, found = strings.Cut(rpath, "/")
 		if sp, ok := args[n].(*string); ok {
 			*sp = star
 		} else if bp, ok := args[n].(*[]byte); ok {
