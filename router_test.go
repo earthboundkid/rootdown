@@ -192,3 +192,22 @@ func TestParam(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkRouterServeHTTP(b *testing.B) {
+	text := func(s string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			io.WriteString(w, s)
+		}
+	}
+	var rr rootdown.Router
+	rr.Get("/", text("home"))
+	rr.Get("/a/b/c", text("c"))
+	rr.NotFound(text("404"))
+	req := httptest.NewRequest(http.MethodGet, "/a/b/c", nil)
+	w := &httptest.ResponseRecorder{}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		*w = httptest.ResponseRecorder{}
+		rr.ServeHTTP(w, req)
+	}
+}
