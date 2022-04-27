@@ -1,3 +1,5 @@
+github.com/carlmjohnson/be v0.22.4 h1:CEYQrjQu8ABgEryNXibdk9gvJb7I0yg3iTAK7L4c2bk=
+github.com/carlmjohnson/be v0.22.4/go.mod h1:KAgPUh0HpzWYZZI+IABdo80wTgY43YhbdsiLYAaSI/Q=
 github.com/carlmjohnson/requests v0.22.1 h1:YoifpEbpJW4LPRX/+0dJe3vTLducEE9Ib10k6lElIUM=
 github.com/carlmjohnson/requests v0.22.1/go.mod h1:Hw4fFOk3xDlHQbNRTGo4oc52TUTpVEq93sNy/H+mrQM=
 golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f h1:OfiFi4JbukWwe3lzw+xunroH1mnC1e2Gy5cxNJApiSY=

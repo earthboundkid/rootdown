@@ -2,13 +2,13 @@ package rootdown_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"testing/fstest"
 
+	"github.com/carlmjohnson/be"
 	"github.com/carlmjohnson/requests"
 	"github.com/carlmjohnson/rootdown"
 )
@@ -87,13 +87,10 @@ func TestRouter(t *testing.T) {
 			AddValidator(nil).
 			ToString(&s).
 			Fetch(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if s != o.expect {
-			t.Errorf("%s %s: %q", o.method, o.path, s)
-			fmt.Printf("%#v\n\n", rr)
-		}
+		be.NilErr(t, err)
+		be.DebugLog(t, "%s %s: %q", o.method, o.path, s)
+		be.DebugLog(t, "%#v\n\n", rr)
+		be.Equal(t, o.expect, s)
 	}
 }
 
@@ -114,15 +111,11 @@ func TestParam(t *testing.T) {
 		{"http://x.com/a/b/c", "/a/x/*", "", false},
 	} {
 		r, err := http.NewRequest(http.MethodGet, want.req, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		be.NilErr(t, err)
 
 		got := want
 		got.ok = rootdown.Get(r, want.pat, &got.s)
-		if want != got {
-			t.Fatalf("want %#v; got %#v", want, got)
-		}
+		be.Equal(t, want, got)
 	}
 	type testInt struct {
 		req, pat string
@@ -141,27 +134,21 @@ func TestParam(t *testing.T) {
 		{"http://x.com/a/b/1", "/a/x/*", 0, false},
 	} {
 		r, err := http.NewRequest(http.MethodGet, want.req, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		be.NilErr(t, err)
 
 		got := want
 		got.ok = rootdown.Get(r, want.pat, &got.i)
-		if want != got {
-			t.Fatalf("want %#v; got %#v", want, got)
-		}
+		be.Equal(t, want, got)
+
 		var i32 int32
 		got.ok = rootdown.Get(r, want.pat, &i32)
 		got.i = int(i32)
-		if want != got {
-			t.Fatalf("want %#v; got %#v", want, got)
-		}
+		be.Equal(t, want, got)
+
 		var i64 int64
 		got.ok = rootdown.Get(r, want.pat, &i64)
 		got.i = int(i64)
-		if want != got {
-			t.Fatalf("want %#v; got %#v", want, got)
-		}
+		be.Equal(t, want, got)
 	}
 	type testByte struct {
 		req, pat, s string
@@ -179,17 +166,13 @@ func TestParam(t *testing.T) {
 		{"http://x.com/a/b/Yw==", "/a/x/*", "", false},
 	} {
 		r, err := http.NewRequest(http.MethodGet, want.req, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		be.NilErr(t, err)
 
 		got := want
 		var b []byte
 		got.ok = rootdown.Get(r, want.pat, &b)
 		got.s = string(b)
-		if want != got {
-			t.Fatalf("want %#v; got %#v", want, got)
-		}
+		be.Equal(t, want, got)
 	}
 }
 
