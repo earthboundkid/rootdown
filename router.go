@@ -81,13 +81,13 @@ func (rr *Router) NotFound(h http.HandlerFunc, middlewares ...Middleware) {
 // Mount mounts fsys at the given path by walking the filesystem starting at root and
 // adding a Get entry for every file it finds. As a result, if new files are added to
 // fsys at runtime, they won't be picked up.
-// Mount panics if there are any errors in the process of walking the fsys.
-func (rr *Router) Mount(path, root string, fsys fs.FS, middlewares ...Middleware) {
+// Mount returns an error if any occur in the process of walking the fsys.
+func (rr *Router) Mount(path, root string, fsys fs.FS, middlewares ...Middleware) error {
 	httpfs := http.FS(fsys)
 	if root == "" {
 		root = "."
 	}
-	err := fs.WalkDir(fsys, root, func(fpath string, de fs.DirEntry, err error) error {
+	return fs.WalkDir(fsys, root, func(fpath string, de fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("could not mount filesystem: %w", err)
 		}
@@ -117,9 +117,6 @@ func (rr *Router) Mount(path, root string, fsys fs.FS, middlewares ...Middleware
 		rr.Get(routepath, h, middlewares...)
 		return nil
 	})
-	if err != nil {
-		panic(err)
-	}
 }
 
 // ServeHTTP fulfills the http.Handler interface.
