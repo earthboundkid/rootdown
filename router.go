@@ -59,11 +59,7 @@ func (rr *Router) Route(method, path string, h http.HandlerFunc, middlewares ...
 		}
 		path = after
 	}
-	var handler http.Handler = h
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		m := middlewares[i]
-		handler = m(handler)
-	}
+	handler := MiddlewareStack(middlewares).AsMiddleware()(h)
 	seg.methods[method] = handler
 }
 
