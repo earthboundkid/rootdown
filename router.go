@@ -31,7 +31,7 @@ type segment struct {
 // Paths are matched without regard to the presence or absence of trailing slashes.
 // (See the redirect middleware to enforce the presence/absence of a slash.)
 // If a path contains a wildcard (*), any string may be present in that path segment.
-// If a request path cannot be matched, the Router looks for the closest parent route that has a 404 path added and routes to that handler.
+// If a request path cannot be matched, the Router looks for the closest parent route that has a ... path added and routes to that handler.
 func (rr *Router) Route(method, path string, h http.HandlerFunc, middlewares ...Middleware) {
 	if rr.head == nil {
 		rr.head = &segment{
@@ -73,9 +73,9 @@ func (rr *Router) Post(path string, h http.HandlerFunc, middlewares ...Middlewar
 	rr.Route(http.MethodPost, path, h, middlewares...)
 }
 
-// NotFound is a shortcut for rr.Route("*", "/404", ...).
+// NotFound is a shortcut for rr.Route("*", "/...", ...).
 func (rr *Router) NotFound(h http.HandlerFunc, middlewares ...Middleware) {
-	rr.Route("*", "/404", h, middlewares...)
+	rr.Route("*", "/...", h, middlewares...)
 }
 
 // Mount mounts fsys at the given path by walking the filesystem starting at root and
@@ -124,7 +124,7 @@ func (rr *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	path = strings.TrimSuffix(path, "/")
 	seg := rr.head
-	did404 := false
+	didCatchAll := false
 	for seg != nil {
 		before, after, found := strings.Cut(path, "/")
 		newseg := seg.children[before]
@@ -132,7 +132,7 @@ func (rr *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			newseg = seg.children["*"]
 		}
 		if newseg == nil {
-			did404 = true
+			didCatchAll = true
 			break
 		}
 		seg = newseg
@@ -141,9 +141,9 @@ func (rr *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		path = after
 	}
-	if did404 || len(seg.methods) == 0 {
+	if didCatchAll || len(seg.methods) == 0 {
 		for seg != nil {
-			newseg := seg.children["404"]
+			newseg := seg.children["..."]
 			if newseg != nil {
 				seg = newseg
 				break

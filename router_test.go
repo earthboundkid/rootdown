@@ -47,7 +47,7 @@ func TestRouter(t *testing.T) {
 	rr.Post("/a", text("post"), rootdown.RedirectFromSlash)
 	rr.Get("/*/b", text("b"))
 	rr.Get("/a/b/c", text("c"))
-	rr.Get("/a/b/404", text("404-2"))
+	rr.Get("/a/b/...", text("404-2"))
 	rr.Mount("/static", "mount", fsys1)
 	rr.Mount("", "", fsys2)
 	rr.NotFound(text("404"))
