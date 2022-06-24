@@ -76,21 +76,23 @@ func TestRouter(t *testing.T) {
 		{http.MethodGet, "/3.txt", "3"},
 		{http.MethodGet, "/4/", "4"},
 	} {
-		var s string
-		cl := srv.Client()
-		cl.CheckRedirect = requests.NoFollow
-		err := requests.
-			URL(srv.URL).
-			Path(o.path).
-			Method(o.method).
-			Client(cl).
-			AddValidator(nil).
-			ToString(&s).
-			Fetch(context.Background())
-		be.NilErr(t, err)
-		be.DebugLog(t, "%s %s: %q", o.method, o.path, s)
-		be.DebugLog(t, "%#v\n\n", rr)
-		be.Equal(t, o.expect, s)
+		t.Run(o.method+" "+o.path, func(t *testing.T) {
+			var s string
+			cl := srv.Client()
+			cl.CheckRedirect = requests.NoFollow
+			err := requests.
+				URL(srv.URL).
+				Path(o.path).
+				Method(o.method).
+				Client(cl).
+				AddValidator(nil).
+				ToString(&s).
+				Fetch(context.Background())
+			be.NilErr(t, err)
+			be.DebugLog(t, "%s %s: %q", o.method, o.path, s)
+			be.DebugLog(t, "%#v\n\n", rr)
+			be.Equal(t, o.expect, s)
+		})
 	}
 }
 
